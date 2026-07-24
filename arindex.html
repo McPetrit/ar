@@ -1,36 +1,54 @@
 <!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>My House — AR</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>House VR — Walkthrough</title>
 <script type="importmap">
-{"imports":{"three":"https://unpkg.com/three@0.184.0/build/three.module.js","three/addons/exporters/USDZExporter.js":"https://unpkg.com/three@0.184.0/examples/jsm/exporters/USDZExporter.js","three/addons/exporters/GLTFExporter.js":"https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js"}}
+{"imports":{"three":"https://unpkg.com/three@0.184.0/build/three.module.js","three/addons/webxr/VRButton.js":"https://unpkg.com/three@0.184.0/examples/jsm/webxr/VRButton.js","three/addons/webxr/XRControllerModelFactory.js":"https://unpkg.com/three@0.184.0/examples/jsm/webxr/XRControllerModelFactory.js"}}
 </script>
-<script type="module" src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
 <style>
-  html,body{margin:0;height:100%;font-family:-apple-system,system-ui,sans-serif;background:#e6e1d5;color:#35322b;overflow:hidden;}*{box-sizing:border-box;}
-  model-viewer{width:100vw;height:100vh;background:linear-gradient(#eef1f3,#dfe4e8);}
-  .panel{position:fixed;top:12px;left:12px;right:12px;z-index:20;background:rgba(246,243,236,0.95);border:1px solid #d8d1c2;border-radius:12px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;box-shadow:0 8px 24px -12px rgba(60,52,38,0.4);}
-  .panel b{font-size:15px;}.panel select{padding:8px 9px;border:1px solid #cfc7b6;border-radius:7px;background:#fff;font-size:14px;color:#35322b;}
-  .seg{display:flex;border:1px solid #cfc7b6;border-radius:8px;overflow:hidden;}.seg button{padding:8px 12px;border:none;background:#f6f3ec;color:#6f665a;font-size:13px;font-weight:600;}.seg button.on{background:#b06a43;color:#fff;}
-  #arBtn{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:15;padding:14px 26px;border:none;border-radius:30px;background:#33302a;color:#f6f3ec;font-size:15px;font-weight:600;box-shadow:0 8px 24px -8px rgba(0,0,0,0.5);}
-  .status{position:fixed;left:12px;bottom:16px;z-index:20;font-size:12px;color:#6f665a;background:rgba(246,243,236,0.9);padding:6px 12px;border-radius:7px;}
-</style></head><body>
-<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#33302a"/><g fill="#f6f3ec"><path d="M28 58 L50 42 L72 58 L72 74 L28 74 Z"/><circle cx="50" cy="30" r="7"/></g></svg></template>
-<model-viewer id="mv" camera-controls shadow-intensity="1.2" shadow-softness="0.8" tone-mapping="aces" exposure="1.0" ar ar-modes="webxr scene-viewer quick-look" ar-scale="fixed" alt="House model">
-  <button id="arBtn" slot="ar-button">View in your room (AR)</button>
-</model-viewer>
-<div class="panel"><b>My House</b>
-  <select id="roofSel"><option value="spanish">Spanish roof</option><option value="gable">Gable roof</option><option value="flat">Flat roof</option><option value="modern">Modern roof</option></select>
-  <select id="wallSel"><option value="stucco">Stucco</option><option value="brick">Brick</option><option value="siding">Siding</option></select>
-  <select id="viewSel"><option value="all">Whole house</option><option value="ground">Level 1 only</option><option value="upper">Level 2 only</option></select>
-  <div class="seg" id="roofSeg"><button data-roof="on" class="on">Roof</button><button data-roof="off">Roof off</button></div>
-  <div class="seg" id="sizeSeg"><button data-mode="table" class="on">Tabletop</button><button data-mode="real">Real 1:1</button></div>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0d0f12;font-family:-apple-system,system-ui,sans-serif;color:#f6f3ec;}
+  *{box-sizing:border-box;}
+  canvas{display:block;}
+  .panel{position:fixed;top:12px;left:12px;right:12px;z-index:20;background:rgba(25,26,29,0.86);border:1px solid #3a3b3f;border-radius:12px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .panel b{font-size:15px;}
+  .panel select{padding:8px 9px;border:1px solid #4a4b50;border-radius:7px;background:#222326;font-size:14px;color:#f6f3ec;}
+  .seg{display:flex;border:1px solid #4a4b50;border-radius:8px;overflow:hidden;}
+  .seg button{padding:8px 12px;border:none;background:#222326;color:#b9b3a6;font-size:13px;font-weight:600;cursor:pointer;}
+  .seg button.on{background:#b06a43;color:#fff;}
+  .hint{position:fixed;left:12px;bottom:14px;z-index:20;font-size:12.5px;line-height:1.7;color:#cfc7b6;background:rgba(25,26,29,0.86);padding:10px 14px;border-radius:9px;max-width:340px;}
+  .hint b{color:#e8b894;}
+  a.back{position:fixed;right:12px;bottom:14px;z-index:20;font-size:12.5px;color:#e8b894;background:rgba(25,26,29,0.86);padding:9px 13px;border-radius:9px;text-decoration:none;}
+  #VRButton{z-index:25 !important;}
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1d2733"/><g fill="#e8b894"><path d="M24 56 L50 38 L76 56 L76 76 L24 76 Z"/><rect x="42" y="60" width="16" height="16" fill="#1d2733"/></g></svg></template>
+
+<div class="panel">
+  <b>House VR</b>
+  <select id="floorSel"><option value="all">Whole house</option><option value="0">Level 1</option><option value="1">Level 2</option></select>
+  <select id="roofSel"><option value="spanish">Spanish roof</option><option value="gable">Gable</option><option value="flat">Flat</option><option value="modern">Modern</option></select>
+  <div class="seg" id="roofSeg"><button data-r="on">Roof on</button><button data-r="off" class="on">Roof off</button></div>
+  <div class="seg" id="lvlSeg"><button data-l="0" class="on">Stand on L1</button><button data-l="1">Stand on L2</button></div>
 </div>
-<div class="status" id="status">Preparing model…</div>
+
+<div class="hint">
+  <b>Enter VR</b> with the button, then:<br>
+  <b>Walk physically</b> — real steps map 1:1 inside your play space<br>
+  <b>Left stick</b> — glide further when you reach your boundary<br>
+  <b>Right stick</b> — turn left / right<br>
+  <b>Triggers</b> — fly up / down<br>
+  <b>Y / B button</b> — jump to the other floor<br>
+  <b>X / A button</b> — recenter: puts you back at your play-space middle without moving the house<br>
+  On desktop: <b>W A S D</b> + drag mouse to look.
+</div>
+<a class="back" href="Floor Plan Editor.dc.html">&larr; Floor Plan Editor</a>
+
 <script type="module">
 import * as THREE from 'three';
-import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
-import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
 // Builds a THREE.Group house from a Floor Plan Studio floor object.
 // Scale: 10px = 1ft; 1px = 0.03048 m. y-up, meters, centered on origin.
 const PX = 0.03048;
@@ -887,30 +905,203 @@ function buildHouse(THREE, floorList, opts) {
   return { group, mats, rooms: camRooms };
 }
 
-const PLAN = {"floors":[{"name":"Level 1","rooms":[{"id":"r1","x":180,"y":140,"w":180,"h":200,"name":"Kitchen","color":"#ece5d6"},{"id":"r2","x":180,"y":340,"w":200,"h":200,"name":"living room","color":"#eae4d7"},{"id":"r101","x":360,"y":140,"w":80,"h":80,"name":"pantry","color":"#e4e8e6"},{"id":"r102","x":360,"y":220,"w":80,"h":60,"name":"half bath","color":"#efece4"},{"id":"r103","x":360,"y":280,"w":320,"h":100,"name":"Hallway","color":"#e8e4da"},{"id":"r104","x":440,"y":140,"w":120,"h":140,"name":"office","color":"#e8dfe0"},{"id":"r106","x":660,"y":140,"w":200,"h":140,"name":"garage","color":"#dfe6e4"},{"id":"r107","x":680,"y":380,"w":180,"h":160,"name":"bedroom 1","color":"#ece5d6"},{"id":"r108","x":620,"y":380,"w":60,"h":160,"name":"Hallway","color":"#e8e4da"},{"id":"r109","x":680,"y":280,"w":60,"h":100,"name":"lau","color":"#e8e4da"},{"id":"r111","x":740,"y":280,"w":40,"h":100,"name":"clo","color":"#efece4"},{"id":"r112","x":780,"y":280,"w":80,"h":100,"name":"bath","color":"#efe9dc"},{"id":"r122","x":180,"y":640,"w":120,"h":180,"name":"bedroom 2","color":"#e8dfe0","up":true},{"id":"r123","x":180,"y":820,"w":380,"h":60,"name":"Hallway","color":"#e8e4da","up":true},{"id":"r124","x":300,"y":700,"w":80,"h":120,"name":"bath","color":"#ece5d6","up":true},{"id":"r125","x":300,"y":640,"w":40,"h":60,"name":"clo","color":"#eae4d7","up":true},{"id":"r126","x":340,"y":640,"w":40,"h":60,"name":"clo","color":"#e4e8e6","up":true},{"id":"r128","x":380,"y":640,"w":120,"h":180,"name":"bedroom 3","color":"#efece4","up":true},{"id":"r130","x":660,"y":640,"w":200,"h":120,"name":"theater room","color":"#efe9dc","up":true},{"id":"r131","x":620,"y":880,"w":60,"h":160,"name":"Hallway","color":"#e8e4da","up":true},{"id":"r133","x":680,"y":840,"w":180,"h":200,"name":"master","color":"#ece5d6","up":true},{"id":"r134","x":560,"y":760,"w":120,"h":120,"name":"Hallway","color":"#e8e4da","up":true},{"id":"r137","x":680,"y":760,"w":60,"h":80,"name":"master closet","color":"#e4e8e6","up":true},{"id":"r138","x":740,"y":760,"w":120,"h":80,"name":"master bath","color":"#efece4","up":true},{"id":"r139","x":500,"y":640,"w":60,"h":180,"name":"loft","color":"#efe9dc","up":true},{"id":"r148","x":560,"y":140,"w":100,"h":20,"name":"Room","color":"#dfe6e4"}],"openings":[{"id":"o113","roomId":"r107","side":"left","off":139,"kind":"door","flip":true,"out":false},{"id":"o114","roomId":"r103","side":"bottom","off":134,"kind":"door","flip":false,"out":false},{"id":"o115","roomId":"r103","side":"bottom","off":164,"kind":"door","flip":true,"out":false},{"id":"o116","roomId":"r1","side":"right","off":22,"kind":"open","flip":false,"len":36},{"id":"o117","roomId":"r106","side":"right","off":76,"kind":"open","flip":false,"len":92},{"id":"o118","roomId":"r103","side":"top","off":127,"kind":"door","flip":false,"out":true},{"id":"o119","roomId":"r103","side":"top","off":156,"kind":"door","flip":true,"out":true},{"id":"o120","roomId":"r102","side":"bottom","off":27,"kind":"door","flip":false},{"id":"o121","roomId":"r106","side":"bottom","off":20,"kind":"door","flip":false},{"id":"o140","roomId":"r1","side":"right","off":170,"kind":"open","flip":false,"len":60},{"id":"o141","roomId":"r130","side":"bottom","off":20,"kind":"door","flip":false},{"id":"o142","roomId":"r131","side":"right","off":138,"kind":"door","flip":true,"out":true},{"id":"o144","roomId":"r139","side":"right","off":58,"kind":"open","flip":false,"len":116},{"id":"o145","roomId":"r123","side":"top","off":346,"kind":"open","flip":false,"len":68},{"id":"o150","roomId":"r2","side":"right","off":156,"kind":"window","flip":false},{"id":"o151","roomId":"r2","side":"right","off":89,"kind":"window","flip":false},{"id":"o152","roomId":"r108","side":"left","off":44,"kind":"window","flip":false},{"id":"o153","roomId":"r108","side":"left","off":120,"kind":"window","flip":false},{"id":"o154","roomId":"r131","side":"left","off":36,"kind":"window","flip":false},{"id":"o155","roomId":"r131","side":"left","off":123,"kind":"window","flip":false},{"id":"o158","roomId":"r103","side":"bottom","off":73,"kind":"window","flip":false},{"id":"o159","roomId":"r103","side":"bottom","off":223,"kind":"window","flip":false},{"id":"o164","roomId":"r123","side":"left","off":29,"kind":"window","flip":false},{"id":"o165","roomId":"r2","side":"bottom","off":162.36,"kind":"window","flip":false},{"id":"o166","roomId":"r2","side":"bottom","off":51,"kind":"window","flip":false},{"id":"o167","roomId":"r2","side":"left","off":146,"kind":"window","flip":false},{"id":"o168","roomId":"r2","side":"left","off":66,"kind":"window","flip":false},{"id":"o169","roomId":"r123","side":"bottom","off":259,"kind":"window","flip":false},{"id":"o173","roomId":"r107","side":"bottom","off":44,"kind":"window","flip":false},{"id":"o174","roomId":"r107","side":"bottom","off":135,"kind":"window","flip":false},{"id":"o175","roomId":"r133","side":"bottom","off":41,"kind":"window","flip":false},{"id":"o176","roomId":"r133","side":"bottom","off":137,"kind":"window","flip":false},{"id":"o177","roomId":"r138","side":"right","off":37,"kind":"window","flip":false},{"id":"o178","roomId":"r133","side":"right","off":42,"kind":"window","flip":false},{"id":"o179","roomId":"r133","side":"right","off":151,"kind":"window","flip":false},{"id":"o180","roomId":"r130","side":"top","off":143,"kind":"window","flip":false},{"id":"o181","roomId":"r130","side":"top","off":67,"kind":"window","flip":false},{"id":"o182","roomId":"r128","side":"top","off":24.68,"kind":"window","flip":false},{"id":"o183","roomId":"r128","side":"top","off":82,"kind":"window","flip":false},{"id":"o184","roomId":"r122","side":"top","off":64,"kind":"window","flip":false},{"id":"o186","roomId":"r122","side":"left","off":51,"kind":"window","flip":false},{"id":"o187","roomId":"r122","side":"left","off":124,"kind":"window","flip":false},{"id":"o188","roomId":"r104","side":"top","off":40,"kind":"window","flip":false},{"id":"o189","roomId":"r104","side":"top","off":84,"kind":"window","flip":false},{"id":"o190","roomId":"r101","side":"top","off":40,"kind":"window","flip":false},{"id":"o191","roomId":"r1","side":"left","off":52,"kind":"window","flip":false},{"id":"o192","roomId":"r1","side":"left","off":139,"kind":"window","flip":false},{"id":"o193","roomId":"r107","side":"right","off":109,"kind":"window","flip":false},{"id":"o194","roomId":"r107","side":"right","off":36,"kind":"window","flip":false},{"id":"o195","roomId":"r112","side":"right","off":43,"kind":"window","flip":false},{"id":"o196","roomId":"r106","side":"top","off":97,"kind":"window","flip":false},{"id":"o100","roomId":"r1","side":"top","off":69.49,"kind":"base","flip":false,"len":132},{"id":"o102","roomId":"r1","side":"left","off":54,"kind":"base","flip":false,"len":104},{"id":"o199","roomId":"r1","side":"top","off":153,"kind":"door","flip":true,"out":true},{"id":"o200","roomId":"r1","side":"bottom","off":94,"kind":"open","flip":false,"len":172},{"id":"o202","roomId":"r103","side":"left","off":54,"kind":"open","flip":false,"len":92},{"id":"o203","roomId":"r103","side":"right","off":32,"kind":"door","flip":false,"out":true},{"id":"o204","roomId":"r103","side":"bottom","off":289,"kind":"open","flip":false,"len":56},{"id":"o205","roomId":"r103","side":"top","off":252,"kind":"open","flip":false,"len":104},{"id":"o206","roomId":"r131","side":"top","off":30,"kind":"open","flip":false,"len":52},{"id":"o209","roomId":"r134","side":"bottom","off":31.91,"kind":"window","flip":false},{"id":"o211","roomId":"r107","side":"top","off":151.27,"kind":"door","flip":true,"out":true},{"id":"o212","roomId":"r107","side":"top","off":79.59,"kind":"door","flip":false,"out":true},{"id":"o213","roomId":"r133","side":"top","off":154.34,"kind":"door","flip":true,"out":true},{"id":"o214","roomId":"r133","side":"top","off":23,"kind":"door","flip":false,"out":true},{"id":"o215","roomId":"r122","side":"bottom","off":93.73,"kind":"door","flip":true,"out":false},{"id":"o216","roomId":"r123","side":"top","off":178.7,"kind":"door","flip":true,"out":true},{"id":"o217","roomId":"r123","side":"top","off":297.63,"kind":"door","flip":true,"out":true},{"id":"o218","roomId":"r134","side":"left","off":56,"kind":"open","flip":false,"len":112},{"id":"o222","roomId":"r123","side":"bottom","off":106.08,"kind":"open","flip":false,"len":164},{"id":"o235","roomId":"r1","side":"left","off":17.84,"kind":"upper","flip":false,"len":32},{"id":"o236","roomId":"r1","side":"top","off":78,"kind":"upper","flip":false,"len":108},{"id":"o237","roomId":"r1","side":"left","off":88,"kind":"upper","flip":false,"len":56}],"stairs":[{"id":"s105","x":560,"y":140,"w":100,"h":120,"kind":"U","land":"top","dir":"up"},{"id":"s127","x":560,"y":640,"w":100,"h":120,"kind":"U","land":"top","dir":"up"},{"id":"s197","x":230,"y":190,"w":90,"h":40,"kind":"island"},{"id":"s207","x":560,"y":140,"w":100,"h":4,"kind":"wallseg"},{"id":"s208","x":560,"y":880,"w":60,"h":4,"kind":"wallseg"},{"id":"s210","x":570,"y":640,"w":90,"h":4,"kind":"wallseg"},{"id":"s219","x":180,"y":880,"w":4,"h":160,"kind":"wallseg"},{"id":"s220","x":184,"y":1036,"w":196,"h":4,"kind":"wallseg"},{"id":"s221","x":380,"y":880,"w":4,"h":156,"kind":"wallseg"},{"id":"s223","x":380,"y":380,"w":240,"h":160,"kind":"tile"},{"id":"s224","x":580,"y":390,"w":30,"h":30,"kind":"plant"},{"id":"s225","x":390,"y":390,"w":30,"h":30,"kind":"plant"},{"id":"s226","x":580,"y":450,"w":30,"h":30,"kind":"plant"},{"id":"s227","x":580,"y":500,"w":30,"h":30,"kind":"plant"},{"id":"s228","x":390,"y":440,"w":30,"h":30,"kind":"plant"},{"id":"s229","x":390,"y":500,"w":30,"h":30,"kind":"plant"},{"id":"s230","x":210,"y":880,"w":150,"h":20,"kind":"railing"},{"id":"s231","x":230,"y":310,"w":90,"h":40,"kind":"diningset"},{"id":"s232","x":250,"y":520,"w":60,"h":20,"kind":"tv"},{"id":"s233","x":250,"y":470,"w":60,"h":20,"kind":"coffeetable"},{"id":"s234","x":220,"y":400,"w":120,"h":30,"kind":"couch"}]},{"name":"Level 2","rooms":[],"openings":[]}]};
-const mv = document.getElementById('mv'); const $ = id => document.getElementById(id);
-let sizeMode='table', glbUrl=null, usdzUrl=null, roofOn=true;
-function viewFloors(){ const v=$('viewSel').value; const f=PLAN.floors[0];
-  if(v==='ground') return [{name:'L1',rooms:f.rooms.filter(r=>!r.up),openings:f.openings,stairs:(f.stairs||[])}];
-  if(v==='upper') return [{name:'L2',rooms:f.rooms.filter(r=>r.up).map(r=>({...r,up:false})),openings:f.openings,stairs:(f.stairs||[])}];
-  return PLAN.floors; }
-async function rebuild(){
-  $('status').textContent='Building model…';
-  const { group } = buildHouse(THREE, viewFloors(), { roof: $('roofSel').value, walls: $('wallSel').value });
-  if(!roofOn){ const kill=[]; group.traverse(o=>{ if(/roof|parapet/i.test(o.name)) kill.push(o); }); kill.forEach(o=>o.parent&&o.parent.remove(o)); }
-  const box=new THREE.Box3().setFromObject(group); const size=new THREE.Vector3(); box.getSize(size);
-  const scale = sizeMode==='table' ? (0.4/Math.max(size.x,size.z)) : 1;
-  group.updateMatrixWorld(true);
-  const out=new THREE.Group();
-  group.traverse(o=>{ if(o.isMesh){ const geo=o.geometry.clone(); geo.applyMatrix4(o.matrixWorld); geo.scale(scale,scale,scale); const m=new THREE.Mesh(geo,o.material); m.name=o.name; out.add(m); } });
-  if(glbUrl) URL.revokeObjectURL(glbUrl); if(usdzUrl) URL.revokeObjectURL(usdzUrl);
-  try{ const usdz=await new USDZExporter().parseAsync(out); usdzUrl=URL.createObjectURL(new Blob([usdz],{type:'model/vnd.usdz+zip'})); mv.setAttribute('ios-src',usdzUrl); }catch(e){}
-  const glb=await new GLTFExporter().parseAsync(out,{binary:true}); glbUrl=URL.createObjectURL(new Blob([glb],{type:'model/gltf-binary'})); mv.setAttribute('src',glbUrl);
-  mv.setAttribute('ar-scale','fixed');
-  $('status').textContent = sizeMode==='table' ? 'Tabletop model ready — tap the AR button.' : 'Real 1:1 model ready — place on open floor.';
+
+const $ = id => document.getElementById(id);
+const PX = 0.03048;
+
+let plan = {"floors":[{"name":"Level 1","rooms":[{"id":"r1","x":180,"y":140,"w":180,"h":200,"name":"Kitchen","color":"#ece5d6"},{"id":"r2","x":180,"y":340,"w":200,"h":200,"name":"living room","color":"#eae4d7"},{"id":"r101","x":360,"y":140,"w":80,"h":80,"name":"pantry","color":"#e4e8e6"},{"id":"r102","x":360,"y":220,"w":80,"h":60,"name":"half bath","color":"#efece4"},{"id":"r103","x":360,"y":280,"w":320,"h":100,"name":"Hallway","color":"#e8e4da"},{"id":"r104","x":440,"y":140,"w":120,"h":140,"name":"office","color":"#e8dfe0"},{"id":"r106","x":660,"y":140,"w":200,"h":140,"name":"garage","color":"#dfe6e4"},{"id":"r107","x":680,"y":380,"w":180,"h":160,"name":"bedroom 1","color":"#ece5d6"},{"id":"r108","x":620,"y":380,"w":60,"h":160,"name":"Hallway","color":"#e8e4da"},{"id":"r109","x":680,"y":280,"w":60,"h":100,"name":"lau","color":"#e8e4da"},{"id":"r111","x":740,"y":280,"w":40,"h":100,"name":"clo","color":"#efece4"},{"id":"r112","x":780,"y":280,"w":80,"h":100,"name":"bath","color":"#efe9dc"},{"id":"r122","x":180,"y":640,"w":120,"h":180,"name":"bedroom 2","color":"#e8dfe0","up":true},{"id":"r123","x":180,"y":820,"w":380,"h":60,"name":"Hallway","color":"#e8e4da","up":true},{"id":"r124","x":300,"y":700,"w":80,"h":120,"name":"bath","color":"#ece5d6","up":true},{"id":"r125","x":300,"y":640,"w":40,"h":60,"name":"clo","color":"#eae4d7","up":true},{"id":"r126","x":340,"y":640,"w":40,"h":60,"name":"clo","color":"#e4e8e6","up":true},{"id":"r128","x":380,"y":640,"w":120,"h":180,"name":"bedroom 3","color":"#efece4","up":true},{"id":"r130","x":660,"y":640,"w":200,"h":120,"name":"theater room","color":"#efe9dc","up":true},{"id":"r131","x":620,"y":880,"w":60,"h":160,"name":"Hallway","color":"#e8e4da","up":true},{"id":"r132","x":180,"y":880,"w":200,"h":160,"name":"overlook living room","color":"#efece4","up":true},{"id":"r133","x":680,"y":840,"w":180,"h":200,"name":"master","color":"#ece5d6","up":true},{"id":"r134","x":560,"y":760,"w":120,"h":120,"name":"Hallway","color":"#e8e4da","up":true},{"id":"r137","x":680,"y":760,"w":60,"h":80,"name":"master closet","color":"#e4e8e6","up":true},{"id":"r138","x":740,"y":760,"w":120,"h":80,"name":"master bath","color":"#efece4","up":true},{"id":"r139","x":500,"y":640,"w":60,"h":180,"name":"loft","color":"#efe9dc","up":true},{"id":"r148","x":560,"y":140,"w":100,"h":20,"name":"Room","color":"#dfe6e4"}],"openings":[{"id":"o113","roomId":"r107","side":"left","off":139,"kind":"door","flip":true,"out":false},{"id":"o114","roomId":"r103","side":"bottom","off":134,"kind":"door","flip":false,"out":false},{"id":"o115","roomId":"r103","side":"bottom","off":164,"kind":"door","flip":true,"out":false},{"id":"o116","roomId":"r1","side":"right","off":22,"kind":"open","flip":false,"len":36},{"id":"o117","roomId":"r106","side":"right","off":76,"kind":"open","flip":false,"len":92},{"id":"o118","roomId":"r103","side":"top","off":127,"kind":"door","flip":false,"out":true},{"id":"o119","roomId":"r103","side":"top","off":156,"kind":"door","flip":true,"out":true},{"id":"o120","roomId":"r102","side":"bottom","off":27,"kind":"door","flip":false},{"id":"o121","roomId":"r106","side":"bottom","off":20,"kind":"door","flip":false},{"id":"o140","roomId":"r1","side":"right","off":150,"kind":"open","flip":false,"len":60},{"id":"o141","roomId":"r130","side":"bottom","off":20,"kind":"door","flip":false},{"id":"o142","roomId":"r131","side":"right","off":138,"kind":"door","flip":true,"out":true},{"id":"o143","roomId":"r131","side":"top","off":30,"kind":"open","flip":false,"len":52},{"id":"o144","roomId":"r139","side":"right","off":58,"kind":"open","flip":false,"len":116},{"id":"o145","roomId":"r123","side":"top","off":346,"kind":"open","flip":false,"len":68},{"id":"o101","roomId":"r134","side":"left","off":46,"kind":"open","flip":false,"len":92},{"id":"o150","roomId":"r2","side":"right","off":156,"kind":"window","flip":false},{"id":"o151","roomId":"r2","side":"right","off":89,"kind":"window","flip":false},{"id":"o152","roomId":"r108","side":"left","off":44,"kind":"window","flip":false},{"id":"o153","roomId":"r108","side":"left","off":120,"kind":"window","flip":false},{"id":"o154","roomId":"r131","side":"left","off":36,"kind":"window","flip":false},{"id":"o155","roomId":"r131","side":"left","off":123,"kind":"window","flip":false},{"id":"o156","roomId":"r132","side":"right","off":40,"kind":"window","flip":false},{"id":"o157","roomId":"r132","side":"right","off":114,"kind":"window","flip":false},{"id":"o158","roomId":"r103","side":"bottom","off":73,"kind":"window","flip":false},{"id":"o159","roomId":"r103","side":"bottom","off":223,"kind":"window","flip":false},{"id":"o160","roomId":"r132","side":"bottom","off":155,"kind":"window","flip":false},{"id":"o161","roomId":"r132","side":"bottom","off":50,"kind":"window","flip":false},{"id":"o162","roomId":"r132","side":"left","off":114,"kind":"window","flip":false},{"id":"o163","roomId":"r132","side":"left","off":41,"kind":"window","flip":false},{"id":"o164","roomId":"r123","side":"left","off":29,"kind":"window","flip":false},{"id":"o165","roomId":"r2","side":"bottom","off":154,"kind":"window","flip":false},{"id":"o166","roomId":"r2","side":"bottom","off":51,"kind":"window","flip":false},{"id":"o167","roomId":"r2","side":"left","off":146,"kind":"window","flip":false},{"id":"o168","roomId":"r2","side":"left","off":66,"kind":"window","flip":false},{"id":"o169","roomId":"r123","side":"bottom","off":259,"kind":"window","flip":false},{"id":"o172","roomId":"r134","side":"bottom","off":15,"kind":"window","flip":false},{"id":"o173","roomId":"r107","side":"bottom","off":44,"kind":"window","flip":false},{"id":"o174","roomId":"r107","side":"bottom","off":135,"kind":"window","flip":false},{"id":"o175","roomId":"r133","side":"bottom","off":41,"kind":"window","flip":false},{"id":"o176","roomId":"r133","side":"bottom","off":137,"kind":"window","flip":false},{"id":"o177","roomId":"r138","side":"right","off":37,"kind":"window","flip":false},{"id":"o178","roomId":"r133","side":"right","off":42,"kind":"window","flip":false},{"id":"o179","roomId":"r133","side":"right","off":151,"kind":"window","flip":false},{"id":"o180","roomId":"r130","side":"top","off":143,"kind":"window","flip":false},{"id":"o181","roomId":"r130","side":"top","off":67,"kind":"window","flip":false},{"id":"o182","roomId":"r128","side":"top","off":37,"kind":"window","flip":false},{"id":"o183","roomId":"r128","side":"top","off":82,"kind":"window","flip":false},{"id":"o184","roomId":"r122","side":"top","off":40,"kind":"window","flip":false},{"id":"o187","roomId":"r122","side":"left","off":40,"kind":"window","flip":false},{"id":"o188","roomId":"r104","side":"top","off":40,"kind":"window","flip":false},{"id":"o189","roomId":"r104","side":"top","off":84,"kind":"window","flip":false},{"id":"o190","roomId":"r101","side":"top","off":40,"kind":"window","flip":false},{"id":"o191","roomId":"r1","side":"left","off":49,"kind":"window","flip":false},{"id":"o192","roomId":"r1","side":"left","off":139,"kind":"window","flip":false},{"id":"o193","roomId":"r107","side":"right","off":109,"kind":"window","flip":false},{"id":"o194","roomId":"r107","side":"right","off":36,"kind":"window","flip":false},{"id":"o195","roomId":"r112","side":"right","off":43,"kind":"window","flip":false},{"id":"o196","roomId":"r106","side":"top","off":97,"kind":"window","flip":false}],"stairs":[{"id":"s105","x":560,"y":140,"w":100,"h":120,"kind":"U","land":"top","dir":"up"},{"id":"s127","x":560,"y":640,"w":100,"h":120,"kind":"U","land":"top","dir":"up"}]},{"name":"Level 2","rooms":[],"openings":[]}]};
+try { const raw = localStorage.getItem("fpstudio_v1"); if (raw) plan = JSON.parse(raw); } catch (e) {}
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.xr.enabled = true;
+renderer.xr.setReferenceSpaceType('local-floor'); // room-scale: real walking maps 1:1
+document.body.appendChild(renderer.domElement);
+document.body.appendChild(VRButton.createButton(renderer));
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#bcd2e0');
+scene.fog = new THREE.Fog('#bcd2e0', 40, 140);
+
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 400);
+// rig: move the rig, camera stays as the headset reports it
+const rig = new THREE.Group();
+rig.add(camera);
+scene.add(rig);
+
+scene.add(new THREE.HemisphereLight('#dceaf2', '#6b6b5a', 0.55));
+const sun = new THREE.DirectionalLight('#fff4e2', 2.1);
+sun.position.set(24, 34, 16);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 140;
+sun.shadow.camera.left = -50; sun.shadow.camera.right = 50;
+sun.shadow.camera.top = 50; sun.shadow.camera.bottom = -50;
+scene.add(sun);
+scene.add(new THREE.AmbientLight('#ffffff', 0.25));
+
+const ground = new THREE.Mesh(new THREE.CircleGeometry(140, 48), new THREE.MeshStandardMaterial({ color: '#93a97c', roughness: 1 }));
+ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; ground.receiveShadow = true;
+scene.add(ground);
+
+let house = null, roofOn = false, standLevel = 0, floorYs = [0, 3.6576];
+
+function floorsFor() {
+  const v = $('floorSel').value;
+  if (!plan || !plan.floors) return [];
+  if (v === 'all') return plan.floors;
+  const f = plan.floors[0];
+  const wantUp = v === '1';
+  return [{ name: 'L', rooms: f.rooms.filter(r => !!r.up === wantUp).map(r => ({ ...r, up: false })), openings: f.openings, stairs: f.stairs || [] }];
 }
+
+function rebuild() {
+  if (house) { scene.remove(house); house.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); }
+  const built = buildHouse(THREE, floorsFor(), { roof: $('roofSel').value, walls: 'stucco' });
+  house = built.group;
+  if (!roofOn) {
+    const kill = [];
+    house.traverse(o => { if (/roof|parapet|ridge|eave/i.test(o.name)) kill.push(o); });
+    kill.forEach(o => o.parent && o.parent.remove(o));
+  }
+  house.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  scene.add(house);
+  placeStart();
+}
+
+function placeStart() {
+  // stand just outside the front of the house looking in
+  const box = new THREE.Box3().setFromObject(house);
+  const c = new THREE.Vector3(); box.getCenter(c);
+  const size = new THREE.Vector3(); box.getSize(size);
+  rig.position.set(c.x, floorYs[standLevel], box.max.z + 4);
+  yaw = 0; // three.js cameras look down -z; rig is on the +z side, so 0 faces the house
+  rig.rotation.y = yaw;
+}
+
+let yaw = 0;
+const SPEED = 2.6;      // m/s walking
+const TURN = 2.2;       // rad/s
+
+// ---- desktop fallback controls ----
+const keys = {};
+addEventListener('keydown', e => { keys[e.code] = true; });
+addEventListener('keyup', e => { keys[e.code] = false; });
+let dragging = false, pitch = 0;
+renderer.domElement.addEventListener('pointerdown', () => { dragging = true; });
+addEventListener('pointerup', () => { dragging = false; });
+addEventListener('pointermove', e => {
+  if (!dragging || renderer.xr.isPresenting) return;
+  yaw -= e.movementX * 0.003;
+  pitch = Math.max(-1.2, Math.min(1.2, pitch - e.movementY * 0.003));
+});
+
+// ---- VR controllers ----
+const controllers = [renderer.xr.getController(0), renderer.xr.getController(1)];
+controllers.forEach(c => rig.add(c));
+let lastJump = 0, lastRecenter = 0;
+const recenterOffset = new THREE.Vector3();
+
+function readGamepads(dt) {
+  const session = renderer.xr.getSession();
+  if (!session) return;
+  for (const src of session.inputSources) {
+    if (!src.gamepad) continue;
+    const ax = src.gamepad.axes, btn = src.gamepad.buttons;
+    const hand = src.handedness;
+    const dz = v => (Math.abs(v) < 0.15 ? 0 : v);
+    if (hand === 'left') {
+      const sx = dz(ax[2] != null ? ax[2] : ax[0]);
+      const sy = dz(ax[3] != null ? ax[3] : ax[1]);
+      // move relative to where the head is looking
+      const head = new THREE.Vector3();
+      camera.getWorldDirection(head);
+      const hy = Math.atan2(head.x, head.z);
+      const fwd = new THREE.Vector3(Math.sin(hy), 0, Math.cos(hy));
+      const right = new THREE.Vector3(fwd.z, 0, -fwd.x);
+      rig.position.addScaledVector(fwd, -sy * SPEED * dt);
+      rig.position.addScaledVector(right, sx * SPEED * dt);
+    } else if (hand === 'right') {
+      const tx = dz(ax[2] != null ? ax[2] : ax[0]);
+      yaw -= tx * TURN * dt;
+      rig.rotation.y = yaw;
+    }
+    // triggers: fly up (index) / down (squeeze)
+    if (btn[0] && btn[0].pressed) rig.position.y += 1.6 * dt;
+    if (btn[1] && btn[1].pressed) rig.position.y -= 1.6 * dt;
+    // Y / B : jump floors
+    if (btn[5] && btn[5].pressed && performance.now() - lastJump > 400) {
+      lastJump = performance.now();
+      standLevel = standLevel ? 0 : 1;
+      rig.position.y = floorYs[standLevel];
+      syncLvlSeg();
+    }
+    // X / A : recenter — shift the rig so the house stays put but you're back
+    // at the middle of your physical play space
+    if (btn[4] && btn[4].pressed && performance.now() - lastRecenter > 400) {
+      lastRecenter = performance.now();
+      const hp = new THREE.Vector3();
+      camera.getWorldPosition(hp);
+      // keep the world position you're standing at, but zero out the headset offset
+      rig.position.x = hp.x;
+      rig.position.z = hp.z;
+      recenterOffset.copy(camera.position).setY(0);
+      rig.position.x -= recenterOffset.x * Math.cos(yaw) - recenterOffset.z * Math.sin(yaw);
+      rig.position.z -= recenterOffset.x * Math.sin(yaw) + recenterOffset.z * Math.cos(yaw);
+    }
+  }
+}
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(0.05, clock.getDelta());
+  if (renderer.xr.isPresenting) {
+    readGamepads(dt);
+  } else {
+    const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    const right = new THREE.Vector3(fwd.z, 0, -fwd.x);
+    let m = 0, s = 0;
+    if (keys.KeyW) m -= 1; if (keys.KeyS) m += 1;
+    if (keys.KeyA) s -= 1; if (keys.KeyD) s += 1;
+    if (keys.Space) rig.position.y += 1.8 * dt;
+    if (keys.ShiftLeft) rig.position.y -= 1.8 * dt;
+    rig.position.addScaledVector(fwd, m * SPEED * dt);
+    rig.position.addScaledVector(right, s * SPEED * dt);
+    rig.rotation.y = yaw;
+    camera.position.set(0, 1.65, 0);
+    camera.rotation.set(pitch, 0, 0);
+  }
+  renderer.render(scene, camera);
+});
+
+function syncLvlSeg() {
+  [...$('lvlSeg').children].forEach(b => b.classList.toggle('on', +b.dataset.l === standLevel));
+}
+$('floorSel').onchange = rebuild;
+$('roofSel').onchange = rebuild;
+$('roofSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  roofOn = b.dataset.r === 'on';
+  [...$('roofSeg').children].forEach(c => c.classList.toggle('on', c === b));
+  rebuild();
+});
+$('lvlSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  standLevel = +b.dataset.l;
+  rig.position.y = floorYs[standLevel];
+  syncLvlSeg();
+});
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
 rebuild();
-$('roofSel').onchange=rebuild; $('wallSel').onchange=rebuild; $('viewSel').onchange=rebuild;
-$('roofSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;roofOn=b.dataset.roof==='on';[...$('roofSeg').children].forEach(c=>c.classList.toggle('on',c===b));rebuild();});
-$('sizeSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;sizeMode=b.dataset.mode;[...$('sizeSeg').children].forEach(c=>c.classList.toggle('on',c===b));rebuild();});
-</script></body></html>
+</script>
+</body>
+</html>
