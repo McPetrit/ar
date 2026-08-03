@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Mi Casa — 1:1 walkthrough</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0d0f12;
+    font:14px/1.5 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;color:#f6f3ec}
+  *{box-sizing:border-box}
+  canvas{display:block}
+  .panel{position:fixed;top:12px;left:12px;z-index:20;max-width:360px;
+    background:rgba(25,26,29,.88);border:1px solid #3a3b3f;border-radius:12px;padding:12px 14px}
+  .panel b{font-size:15px}
+  .panel p{margin:6px 0 0;font-size:12px;color:#b9b3a6}
+  .seg{display:flex;border:1px solid #4a4b50;border-radius:8px;overflow:hidden;margin-top:9px}
+  .seg button{flex:1;padding:7px 10px;border:none;background:#222326;color:#b9b3a6;
+    font-size:13px;font-weight:600;cursor:pointer}
+  .seg button.on{background:#b06a43;color:#fff}
+  #spots{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  #spots button{flex:1 1 auto;background:#222326;color:#cfc7b6;border:1px solid #4a4b50;
+    border-radius:7px;padding:5px 9px;font-size:12px;cursor:pointer}
+  #spots button:hover{background:#2e3033}
+  #ex{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;color:#b9b3a6}
+  #ex input{flex:1;accent-color:#b06a43}
+  #bar{height:4px;background:#2c2f28;border-radius:2px;overflow:hidden;margin-top:9px}
+  #bar i{display:block;height:100%;width:0;background:#b06a43;transition:width .2s}
+  .hint{position:fixed;left:12px;bottom:14px;z-index:20;font-size:12.5px;line-height:1.7;
+    color:#cfc7b6;background:rgba(25,26,29,.88);padding:10px 14px;border-radius:9px;max-width:360px}
+  .hint b{color:#e8b894}
+  #err{color:#e08a7a}
+  /* three.js parks both buttons at the same spot — pull them apart */
+  #VRButton{z-index:25!important;left:calc(50% - 170px)!important}
+  #ARButton{z-index:25!important;left:calc(50% + 20px)!important}
+</style>
+</head>
+<body>
+<div class="panel">
+  <b>Mi Casa — 1:1</b>
+  <p id="msg">Loading model…</p>
+  <div id="bar"><i></i></div>
+  <div class="seg" id="lvlSeg"><button data-l="0" class="on">Stand on L1</button><button data-l="1">Stand on L2</button></div>
+  <div id="spots"></div>
+  <div id="ex"><span>Exposure</span><input id="exp" type="range" min="0.15" max="1.6" step="0.05" value="0.75"><span id="expv">0.75</span></div>
+  <label style="display:flex;gap:7px;align-items:center;margin-top:9px;font-size:12px;color:#b9b3a6"><input type="checkbox" id="siteChk" checked style="accent-color:#b06a43"> show ground &amp; planting</label>
+  <div id="ex"><span>Reflect&nbsp;</span><input id="env" type="range" min="0" max="1.5" step="0.05" value="0.35"><span id="envv">0.35</span></div>
+</div>
+
+<div class="hint">
+  <b>Enter VR</b> with the button, then:<br>
+  <b>Walk physically</b> — real steps map 1:1 inside your play space<br>
+  <b>Left stick</b> — glide further when you reach your boundary<br>
+  <b>Right stick</b> — turn left / right<br>
+  <b>Triggers</b> — fly up / down<br>
+  <b>Y / B button</b> — jump to the other floor<br>
+  <b>X / A button</b> — recenter: puts you back at your play-space middle without moving the house<br>
+  On desktop: <b>W A S D</b> + drag mouse to look, <b>Space</b>/<b>Shift</b> to fly.<br>
+  <b>Enter AR</b> — passthrough. Ground and planting hide themselves, so the
+  windows look through to your real room. Same controls.
+</div>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://unpkg.com/three@0.184.0/build/three.module.js",
+  "three/addons/":"https://unpkg.com/three@0.184.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader}      from 'three/addons/loaders/GLTFLoader.js';
+import {DRACOLoader}     from 'three/addons/loaders/DRACOLoader.js';
+import {VRButton}        from 'three/addons/webxr/VRButton.js';
+import {ARButton}        from 'three/addons/webxr/ARButton.js';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+
+const MODEL = new URLSearchParams(location.search).get('model') || 'micasa_vr.glb';
+const SPEED = 2.6;                 // m/s walking
+const TURN  = 2.2;                 // rad/s
+const EYE   = 1.65;                // desktop only; in VR the headset supplies it
+// Ground floor sits at y=0 (the model was dropped 0.632 m on export).
+// Upper floor slab tops at Blender z 4.289 -> 4.289 - 0.632.
+let floorYs = [0, 3.6576], standLevel = 0;
+
+// Blender (x, y, z) becomes glTF (x, z, -y) under +Y-up export.
+const SPOTS = [
+  ['Entry',      -0.66,  0.40],
+  ['Living',     -7.40,  3.00],
+  ['Kitchen',    -7.60, -3.40],
+  ['Dining',     -8.10, -0.60],
+  ['Bedroom',     6.30,  3.30],
+  ['Courtyard',  -0.66,  5.60],
+  ['Driveway',   17.00,  6.00],
+];
+
+const msg = document.getElementById('msg');
+const bar = document.querySelector('#bar i');
+
+// alpha + clearAlpha 0 so an AR session shows passthrough wherever no geometry covers it
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true, powerPreference:'high-performance'});
+renderer.setClearAlpha(0);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.75;
+renderer.xr.enabled = true;
+renderer.xr.setReferenceSpaceType('local-floor');   // room-scale: real walking maps 1:1
+document.body.appendChild(renderer.domElement);
+document.body.appendChild(VRButton.createButton(renderer));
+document.body.appendChild(ARButton.createButton(renderer, {
+  requiredFeatures: ['local-floor'],
+  optionalFeatures: ['bounded-floor','hand-tracking']
+}));
+
+// The site plane and planting are the only things that would sit between a
+// window and the real room. Hidden automatically in AR so you see passthrough
+// through the glass; kept in VR so the house isn't floating in a void.
+const siteObjs = [];
+let siteOn = true;
+function setSite(on){
+  siteOn = on;
+  for (const o of siteObjs) o.visible = on;
+  const c = document.getElementById('siteChk'); if (c) c.checked = on;
+}
+renderer.xr.addEventListener('sessionstart', () => {
+  const s = renderer.xr.getSession();
+  const ar = s && s.environmentBlendMode && s.environmentBlendMode !== 'opaque';
+  if (ar){ scene.background = null; scene.fog = null; setSite(false); }
+});
+renderer.xr.addEventListener('sessionend', () => {
+  scene.background = new THREE.Color(0xbcc6cc);
+  scene.fog = new THREE.Fog(0xbcc6cc, 70, 240);
+  setSite(true);
+});
+
+const exp = document.getElementById('exp'), expv = document.getElementById('expv');
+exp.oninput = () => { renderer.toneMappingExposure = +exp.value; expv.textContent = exp.value; };
+
+// 51 of the materials come out of Blender with metallicFactor above 0.3 —
+// Frame (the window frames) is 0.85 metal at 0.3 roughness. Cycles renders
+// those against your real sky; here they reflect a studio environment and go
+// pale and shiny. This dials that reflection back.
+const allMats = [];
+const envInp = document.getElementById('env'), envv = document.getElementById('envv');
+function applyEnv(v){
+  for (const m of allMats) if ('envMapIntensity' in m) { m.envMapIntensity = v; m.needsUpdate = true; }
+}
+envInp.oninput = () => { envv.textContent = envInp.value; applyEnv(+envInp.value); };
+document.getElementById('siteChk').onchange = e => setSite(e.target.checked);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xbcc6cc);
+scene.fog = new THREE.Fog(0xbcc6cc, 70, 240);
+
+// Move the rig, never the camera — in VR the camera pose belongs to the headset.
+const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.05, 500);
+const rig = new THREE.Group();
+rig.add(camera);
+scene.add(rig);
+let yaw = 0, pitch = 0;
+function goTo(x, z){ rig.position.set(x, floorYs[standLevel], z); }
+goTo(SPOTS[0][1], SPOTS[0][2]);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.add(new THREE.HemisphereLight(0xdfe8ef, 0x6b6550, 0.35));
+const sun = new THREE.DirectionalLight(0xfff2e0, 1.1);
+sun.position.set(14, 22, -10);
+scene.add(sun);
+
+const draco = new DRACOLoader()
+  .setDecoderPath('https://unpkg.com/three@0.184.0/examples/jsm/libs/draco/gltf/');
+new GLTFLoader().setDRACOLoader(draco).load(MODEL,
+  gltf => {
+    // Blender lights export at Cycles intensities and clip everything to white.
+    const lights = [];
+    gltf.scene.traverse(o => { if (o.isLight) lights.push(o); });
+    lights.forEach(l => l.removeFromParent());
+
+    // glTF cannot carry a Transparent BSDF, so glass arrives as opaque white.
+    // Alpha blending, not KHR transmission — transmission needs a scene render
+    // target every frame and a Quest will not thank you for it.
+    // /glass/ deliberately does not match "Glazed ceramic".
+    const GLASSY = /glass|glazing/i;
+    let untextured = 0, glass = 0, metal = 0, mats = new Set();
+    gltf.scene.traverse(o => {
+      if (!o.isMesh) return;
+      for (const m of [].concat(o.material)) {
+        if (!m || mats.has(m.uuid)) continue;
+        mats.add(m.uuid);
+        allMats.push(m);
+        if (m.metalness > 0.3) metal++;
+        if (GLASSY.test(m.name || '')) {
+          m.transparent = true; m.opacity = 0.14; m.depthWrite = false;
+          m.roughness = 0.05;   m.metalness = 0;
+          m.color.setHex(0xdde8ec); m.side = THREE.DoubleSide;
+          glass++; continue;
+        }
+        if (!m.map) untextured++;
+        m.side = THREE.FrontSide;
+      }
+    });
+    // grass plane + planting: the only geometry that would block a window view
+    const SITE = /^Ground$|^PLANT_|foliage|tree|shrub|cypress|olive/i;
+    gltf.scene.traverse(o => { if (o.isMesh && SITE.test(o.name || '')) siteObjs.push(o); });
+    applyEnv(+envInp.value);
+    scene.add(gltf.scene);
+    const s = new THREE.Box3().setFromObject(gltf.scene).getSize(new THREE.Vector3());
+    msg.textContent = `${s.x.toFixed(1)} × ${s.z.toFixed(1)} m, ${s.y.toFixed(1)} m tall · `
+      + `${mats.size} materials · ${glass} re-glazed · ${metal} metallic · `
+      + `${untextured} untextured · ${lights.length} lights dropped · `
+      + `${siteObjs.length} ground/planting objects (hidden in AR)`;
+    bar.style.width = '100%';
+    SPOTS.forEach(([n,x,z]) => {
+      const b = document.createElement('button');
+      b.textContent = n; b.onclick = () => goTo(x, z);
+      document.getElementById('spots').appendChild(b);
+    });
+  },
+  ev => {
+    if (ev.total){ bar.style.width = (ev.loaded/ev.total*100)+'%';
+      msg.textContent = `Loading… ${(ev.loaded/1e6).toFixed(1)} / ${(ev.total/1e6).toFixed(1)} MB`; }
+    else msg.textContent = `Loading… ${(ev.loaded/1e6).toFixed(1)} MB`;
+  },
+  err => { msg.innerHTML = `<span id="err">Could not load <b>${MODEL}</b>.</span>`; console.error(err); }
+);
+
+document.querySelectorAll('#lvlSeg button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#lvlSeg button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  standLevel = +b.dataset.l;
+  rig.position.y = floorYs[standLevel];
+});
+function syncLvlSeg(){
+  document.querySelectorAll('#lvlSeg button').forEach(x =>
+    x.classList.toggle('on', +x.dataset.l === standLevel));
+}
+
+let lastJump = 0, lastRecenter = 0;
+const recenterOffset = new THREE.Vector3();
+function readGamepads(dt){
+  const session = renderer.xr.getSession();
+  if (!session) return;
+  for (const src of session.inputSources){
+    if (!src.gamepad) continue;
+    const ax = src.gamepad.axes, btn = src.gamepad.buttons;
+    const dz = v => (Math.abs(v) < 0.15 ? 0 : v);
+    if (src.handedness === 'left'){
+      const sx = dz(ax[2] != null ? ax[2] : ax[0]);
+      const sy = dz(ax[3] != null ? ax[3] : ax[1]);
+      const head = new THREE.Vector3();
+      camera.getWorldDirection(head);
+      const hy = Math.atan2(head.x, head.z);
+      const fwd   = new THREE.Vector3(Math.sin(hy), 0, Math.cos(hy));
+      const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+      rig.position.addScaledVector(fwd,  -sy * SPEED * dt);
+      rig.position.addScaledVector(right, sx * SPEED * dt);
+    } else if (src.handedness === 'right'){
+      yaw -= dz(ax[2] != null ? ax[2] : ax[0]) * TURN * dt;
+      rig.rotation.y = yaw;
+    }
+    // triggers: fly up (index) / down (squeeze)
+    if (btn[0] && btn[0].pressed) rig.position.y += 1.6 * dt;
+    if (btn[1] && btn[1].pressed) rig.position.y -= 1.6 * dt;
+    // Y / B : jump floors
+    if (btn[5] && btn[5].pressed && performance.now() - lastJump > 400){
+      lastJump = performance.now();
+      standLevel = standLevel ? 0 : 1;
+      rig.position.y = floorYs[standLevel];
+      syncLvlSeg();
+    }
+    // X / A : recenter — house stays put, you return to the middle of your room
+    if (btn[4] && btn[4].pressed && performance.now() - lastRecenter > 400){
+      lastRecenter = performance.now();
+      const hp = new THREE.Vector3();
+      camera.getWorldPosition(hp);
+      rig.position.x = hp.x;
+      rig.position.z = hp.z;
+      recenterOffset.copy(camera.position).setY(0);
+      rig.position.x -= recenterOffset.x * Math.cos(yaw) - recenterOffset.z * Math.sin(yaw);
+      rig.position.z -= recenterOffset.x * Math.sin(yaw) + recenterOffset.z * Math.cos(yaw);
+    }
+  }
+}
+
+const keys = {};
+addEventListener('keydown', e => keys[e.code] = true);
+addEventListener('keyup',   e => keys[e.code] = false);
+let dragging = false;
+renderer.domElement.addEventListener('pointerdown', () => dragging = true);
+addEventListener('pointerup',   () => dragging = false);
+addEventListener('pointermove', e => {
+  if (!dragging) return;
+  yaw   -= e.movementX * 0.0026;
+  pitch  = Math.max(-1.4, Math.min(1.4, pitch - e.movementY * 0.0026));
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(0.05, clock.getDelta());
+  if (renderer.xr.isPresenting){
+    readGamepads(dt);
+  } else {
+    const fwd   = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    const right = new THREE.Vector3(fwd.z, 0, -fwd.x);
+    let m = 0, s = 0;
+    if (keys.KeyW) m -= 1; if (keys.KeyS) m += 1;
+    if (keys.KeyA) s -= 1; if (keys.KeyD) s += 1;
+    if (keys.Space)      rig.position.y += 1.8 * dt;
+    if (keys.ShiftLeft)  rig.position.y -= 1.8 * dt;
+    rig.position.addScaledVector(fwd,   m * SPEED * dt);
+    rig.position.addScaledVector(right, s * SPEED * dt);
+    rig.rotation.y = yaw;
+    camera.position.set(0, EYE, 0);
+    camera.rotation.set(pitch, 0, 0);
+  }
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
